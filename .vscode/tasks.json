@@ -1,0 +1,149 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ESP-IDF: Build",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "build"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "problemMatcher": [
+        "$espIdf"
+      ]
+    },
+    {
+      "label": "ESP-IDF: Clean",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "clean"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "label": "ESP-IDF: Flash",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "-p",
+        "${command:espIdf.getPort}",
+        "flash"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "dependsOn": "ESP-IDF: Build"
+    },
+    {
+      "label": "ESP-IDF: Monitor",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "-p",
+        "${command:espIdf.getPort}",
+        "monitor"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "isBackground": true,
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "ESP-IDF: Flash and Monitor",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ESP-IDF: Flash",
+        "ESP-IDF: Monitor"
+      ]
+    },
+    {
+      "label": "ESP-IDF: Full Clean",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "fullclean"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "label": "ESP-IDF: Configure",
+      "type": "shell",
+      "command": "${command:espIdf.getExtensionPath}/esp_idf_vscode/activate.sh",
+      "args": [
+        "idf.py",
+        "menuconfig"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    }
+  ]
+}

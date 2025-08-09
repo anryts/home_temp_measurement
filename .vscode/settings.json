@@ -1,0 +1,35 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPath": "/home/anryts/Documents/repos/esp32/v5.5/esp-idf",
+  "idf.toolsPath": "/home/anryts/.espressif",
+  "idf.pythonInstallPath": "/usr/bin/python3",
+  "idf.saveBeforeBuild": true,
+  "idf.port": "/dev/ttyACM0",
+  "idf.baudRate": "115200",
+  "idf.customExtraPaths": "",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "idf.enableIdfComponentManager": true,
+  "files.associations": {
+    "*.h": "c",
+    "*.c": "c",
+    "sdkconfig": "kconfig"
+  },
+  "editor.rulers": [
+    80,
+    120
+  ],
+  "C_Cpp.default.cStandard": "c11",
+  "C_Cpp.default.cppStandard": "c++17",
+  "clangd.path": "/home/anryts/.espressif/tools/esp-clang/esp-19.1.2_20250312/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=/home/anryts/.espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32s3-elf-gcc",
+    "--compile-commands-dir=/home/anryts/Documents/repos/esp32/blink/build"
+  ],
+  "idf.flashType": "UART",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ]
+}
