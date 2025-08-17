@@ -82,7 +82,7 @@ void temperature_measurement_task(void *param)
         }
         else
         {
-            // printf("Sensor error! Code: T=%d, H=%d\n", t_err, h_err);
+            ESP_LOGE(TAG, "Sensor error! Code: T=%d, H=%d\n", t_err, h_err);
             ESP_LOGI(TAG, "Something bad happened");
         }
 
@@ -91,58 +91,44 @@ void temperature_measurement_task(void *param)
     }
 }
 
-// void display_task(void *param)
-// {
-//     sensor_measurement sensor_measurement;
-//     esp_lcd_panel_io_i2c_config_t io_config =
+void display_task(void *param)
+{
+    lv_disp_t *disp = (lv_disp_t *)param;
+    sensor_measurement sensor_measurement;
+    ESP_LOGI(TAG, "Display LVGL Scroll Text");
+    while (1)
+    {
+        xQueueReceive(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY);
+        // Lock the mutex due to the LVGL APIs are not thread-safe
+        if (lvgl_port_lock(0))
+        {
+            /* Rotation of the screen */
+            lv_disp_set_rotation(disp, LV_DISPLAY_ROTATION_0);
+            
+            ESP_LOGI(TAG, "Temperature: %.2f, Humidity: %.2f", sensor_measurement.temperature, sensor_measurement.humidity);
+            // Convert sensor data to string
+            char *sensor_data_str = convert_data_tostring(&sensor_measurement);
+            if (sensor_data_str == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to convert sensor data to string");
+                continue; // Skip this iteration if conversion failed
+            }
 
-//         // Initialize the display
-//         //vTaskDelay(3000 / portTICK_PERIOD_MS);
-
-//     while (1)
-//     {
-//         xQueueReceive(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY);
-//         char *data_string = convert_data_tostring(&sensor_measurement);
-
-//         // Log to console (guard against NULL)
-//         if (data_string)
-//         {
-//             ESP_LOGI(TAG, "%s", data_string);
-//             free(data_string);
-//         }
-//         else
-//         {
-//             ESP_LOGE(TAG, "Failed to alloc log string");
-//         }
-
-//         vTaskDelay(pdMS_TO_TICKS(5000));
-//     }
-// }
-
-// TODO: add several tasks to display and measure
-// TODO: go to new version of api for i2c
-// void app_main(void)
-// {
-//     ESP_ERROR_CHECK(i2cdev_init()); // init i2cdev once
-
-//     // Init I2C descriptors for sensor and display (old/simple API)
-//     memset(&sensor_dev, 0, sizeof(sensor_dev));
-
-//     //can be used, due to drivers missmatch
-//     //i2c_master_init(&display_dev, DISPLAY_SDA_PIN, DISPLAY_SCL_PIN, CONFIG_RESET_GPIO);
-//     ESP_ERROR_CHECK(si7021_init_desc(&sensor_dev, I2C_SENSOR_PORT, SENSOR_SDA_PIN, SENSOR_SCL_PIN));
-
-//     //ESP_ERROR_CHECK(ssd1306_init(&display_dev, 128, 64));
-//     //memset(&display_dev, 0, sizeof(display_dev));
-//     // Create the queue BEFORE starting tasks
-
-//     sensor_measurement_queue = xQueueCreate(5, sizeof(sensor_measurement));
-//     configASSERT(sensor_measurement_queue);
-
-//     // Tasks (pass pointers to static globals)
-//     //xTaskCreate(display_task, "Display", 8192, &display_dev, 1, NULL);
-//     xTaskCreate(temperature_measurement_task, "SensorMeasurement", 8192, &sensor_dev, 1, NULL);
-// }
+            lv_obj_t *scr = lv_display_get_screen_active(disp);
+            lv_obj_t *label = lv_label_create(scr);
+            // lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_DOTS); /*Just plain text */
+            lv_label_set_long_mode(label, LV_LABEL_LONG_MODE_DOTS); /*Just plain text */
+            lv_label_set_text(label, sensor_data_str);
+            free(sensor_data_str); // Free the allocated string after use
+            lv_obj_set_width(label, lv_display_get_physical_horizontal_resolution(disp));
+            // lv_obj_set_style_text_color(label, lv_color_white(), 0); // ensure visible on black bg
+            lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 0);
+            // Release the mutex
+            lvgl_port_unlock();
+        }
+         vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
 
 void app_main(void)
 {
@@ -192,6 +178,8 @@ void app_main(void)
     ESP_LOGI(TAG, "Install SSD1306 panel driver");
     ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(io_handle, &panel_config, &panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
     ESP_LOGI(TAG, "Initialize LVGL");
@@ -209,23 +197,21 @@ void app_main(void)
             .swap_xy = false,
             .mirror_x = false,
             .mirror_y = false},
-        //.flags = {
-        //    .swap_bytes = false ,     /*!< Allocated LVGL buffer will be DMA capable */
-        //    .sw_rotate = false, /*!< Allocated LVGL buffer will be in PSRAM */
-        //}
     };
+
+    // Initialize I2C subsystem from esp-idf-lib (uses consistent driver version)
+    ESP_ERROR_CHECK(i2cdev_init());
+
+    // Create the measurement queue
+    sensor_measurement_queue = xQueueCreate(10, sizeof(sensor_measurement));
+
+    // Initialize sensor using the esp-idf-lib approach
+    memset(&sensor_dev, 0, sizeof(sensor_dev));
+    ESP_ERROR_CHECK(si7021_init_desc(&sensor_dev, I2C_SENSOR_PORT, SENSOR_SDA_PIN, SENSOR_SCL_PIN));
 
     lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
 
-    ESP_LOGI(TAG, "Display LVGL Scroll Text");
-    // Lock the mutex due to the LVGL APIs are not thread-safe
-    if (lvgl_port_lock(0))
-    {
-        /* Rotation of the screen */
-        lv_disp_set_rotation(disp, LV_DISPLAY_ROTATION_0);
-
-        example_lvgl_demo_ui(disp);
-        // Release the mutex
-        lvgl_port_unlock();
-    }
+    // Create the tasks
+    xTaskCreate(temperature_measurement_task, "SensorMeasurement", 8192, &sensor_dev, 1, NULL);
+    xTaskCreate(display_task, "Display", 8192, (lv_disp_t *)disp, 1, NULL);
 }
