@@ -49,17 +49,20 @@ QueueHandle_t sensor_measurement_queue;
 
 char *convert_data_tostring(sensor_measurement *data)
 {
-    int needed = snprintf(NULL, 0, "Temp: %.2f C, Hm: %.2f", data->temperature, data->humidity);
+    static char buf[64] = {0};
+    int result = snprintf(buf,
+                          sizeof(buf),
+                          "Temp: %.2f C, Hm: %.2f",
+                          data->temperature,
+                          data->humidity);
 
-    // Allocate buffer, +1 for '\0'
-    char *buffer = malloc(needed + 1);
-    if (buffer == NULL)
+    if (result < 1)
     {
-        return NULL; // malloc failed, we are doomed
+        snprintf(buf, sizeof(buf), "Sensor error!");
+        ESP_LOGE(TAG, "Sensor error conversion failed!");
     }
 
-    snprintf(buffer, needed + 1, "Temp: %.2f C, Hm: %.2f", data->temperature, data->humidity);
-    return buffer;
+    return buf;
 }
 
 void temperature_measurement_task(void *param)
@@ -74,13 +77,11 @@ void temperature_measurement_task(void *param)
 
         if (t_err == ESP_OK && h_err == ESP_OK)
         {
-            // put into queue
             xQueueSend(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY);
         }
         else
         {
             ESP_LOGE(TAG, "Sensor error! Code: T=%d, H=%d\n", t_err, h_err);
-            ESP_LOGI(TAG, "Something bad happened");
         }
 
         // Always delay inside the loop to avoid watchdog timeout
@@ -110,41 +111,13 @@ void display_task(void *param)
 
     while (1)
     {
-        // Wait until we receive some information from queue
-        // TODO: Have strong feelings, that this thing is doing something bad
-        // if (xQueueReceive(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY))
-        // {
-        //     // Lock the mutex due to the LVGL APIs are not thread-safe
-        //     if (lvgl_port_lock(portMAX_DELAY))
-        //     {
-        //         lv_label_set_text_fmt(label,
-        //                               "Temp: %.2f C, Hm: %.2f",
-        //                               sensor_measurement.temperature,
-        //                               sensor_measurement.humidity);
-
-        //         // Release the mutex
-        //         lvgl_port_unlock();
-        //     }
-        // }
-        // vTaskDelay(pdMS_TO_TICKS(5000));
-
-        xQueueReceive(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY);
-        // Lock the mutex due to the LVGL APIs are not thread-safe
-        if (lvgl_port_lock(portMAX_DELAY))
+        if (xQueueReceive(sensor_measurement_queue, &sensor_measurement, portMAX_DELAY))
         {
-            ESP_LOGI(TAG, "Temperature: %.2f, Humidity: %.2f", sensor_measurement.temperature, sensor_measurement.humidity);
-
-            char *sensor_data_str = convert_data_tostring(&sensor_measurement);
-            if (sensor_data_str == NULL)
+            if (lvgl_port_lock(portMAX_DELAY))
             {
-                ESP_LOGE(TAG, "Failed to convert sensor data to string");
-                continue; // Skip this iteration if conversion failed
+                lv_label_set_text(label, convert_data_tostring(&sensor_measurement));
+                lvgl_port_unlock();
             }
-
-            lv_label_set_text(label, sensor_data_str);
-            free(sensor_data_str); // Free the allocated string after use
-            // Release the mutex
-            lvgl_port_unlock();
         }
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
@@ -232,18 +205,18 @@ void app_main(void)
 
     lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
 
-    // Create the tasks
     xTaskCreate(temperature_measurement_task,
                 "SensorMeasurement",
                 8192,
                 &sensor_dev,
-                1,
+                0,
                 NULL);
 
+    // set prioty to 0, to avoid watchdog triggering
     xTaskCreate(display_task,
                 "Display",
                 8192,
                 (lv_disp_t *)disp,
-                1,
+                0,
                 NULL);
 }

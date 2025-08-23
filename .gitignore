@@ -21,3 +21,4 @@ managed_components/
 
 sdkconfig.old
 .github/instructions/
+copilot-instructions.md
