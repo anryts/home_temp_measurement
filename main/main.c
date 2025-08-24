@@ -15,6 +15,8 @@
 #include "driver/i2c.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
+#include "driver/adc.h"
+#include "driver/gpio.h"
 
 #define I2C_DISPLAY_PORT I2C_NUM_0
 #define I2C_SENSOR_PORT I2C_NUM_1
@@ -33,6 +35,10 @@
 
 #define I2C_DISPLAY_FREQ_HZ 400000
 #define I2C_SENSOR_FREQ_HZ 100000
+
+#define JOYSTICK_X ADC1_CHANNEL_5 // GPIO_6
+#define JOYSTICK_Y ADC1_CHANNEL_6 // GPIO_7
+#define BUTTON GPIO_NUM_13
 
 static const char *TAG = "Temperature sensor";
 static i2c_dev_t sensor_dev = {0};
@@ -120,6 +126,26 @@ void display_task(void *param)
             }
         }
         vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+void joystic_task(void *param)
+{
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(JOYSTICK_X, ADC_ATTEN_DB_12);
+    adc1_config_channel_atten(JOYSTICK_Y, ADC_ATTEN_DB_12);
+    gpio_set_direction(BUTTON, GPIO_MODE_INPUT);
+    gpio_pullup_en(BUTTON);
+    while (1)
+    {
+
+        int x_value = adc1_get_raw(JOYSTICK_X);
+        int y_value = adc1_get_raw(JOYSTICK_Y);
+        int button_state = gpio_get_level(BUTTON);
+        ESP_LOGI(TAG, "X: %d, Y: %d, Button: %s\n",
+                 x_value, y_value,
+                 button_state ? "Not pressed" : "Pressed");
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 
@@ -219,4 +245,6 @@ void app_main(void)
                 (lv_disp_t *)disp,
                 0,
                 NULL);
+
+    xTaskCreate(joystic_task, "Joystic", 2048, NULL, 0, NULL);
 }
