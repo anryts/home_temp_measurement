@@ -42,6 +42,7 @@
 
 static const char *TAG = "Temperature sensor";
 static i2c_dev_t sensor_dev = {0};
+static int current_menu = 0;
 
 extern void example_lvgl_demo_ui(lv_disp_t *disp);
 
@@ -121,11 +122,23 @@ void display_task(void *param)
         {
             if (lvgl_port_lock(portMAX_DELAY))
             {
-                lv_label_set_text(label, convert_data_tostring(&sensor_measurement));
+                switch (current_menu)
+                {
+                case 0:
+                {
+                    lv_label_set_text(label, convert_data_tostring(&sensor_measurement));
+                    break;
+                }
+                default:
+                {
+                    lv_label_set_text_fmt(label, "Menu number: %d", (current_menu + 1));
+                    break;
+                }
+                }
                 lvgl_port_unlock();
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -138,13 +151,21 @@ void joystic_task(void *param)
     gpio_pullup_en(BUTTON);
     while (1)
     {
-
+        // CONTROL
+        //  Y - LEFT, RIGHT (YES, IT"S NOT OK)
+        //  Y < 100 - RIGHT
+        //  Y > 2000 - LEFT
         int x_value = adc1_get_raw(JOYSTICK_X);
         int y_value = adc1_get_raw(JOYSTICK_Y);
         int button_state = gpio_get_level(BUTTON);
-        ESP_LOGI(TAG, "X: %d, Y: %d, Button: %s\n",
-                 x_value, y_value,
-                 button_state ? "Not pressed" : "Pressed");
+        if (y_value > 2000)
+        {
+            current_menu -= 1;
+        }
+        if (y_value < 100)
+        {
+            current_menu += 1;
+        }
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
@@ -246,5 +267,6 @@ void app_main(void)
                 0,
                 NULL);
 
+    // TODO: migrate to onehost thing, in compile error
     xTaskCreate(joystic_task, "Joystic", 2048, NULL, 0, NULL);
 }
